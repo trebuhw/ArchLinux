@@ -4,8 +4,8 @@
 ROOT_PASSWORD=""  # Hasło dla roota
 USER_NAME="hubert"
 USER_PASSWORD=""
-EFI_PARTITION="/dev/sda1"  # Partycja EFI, ustawiona przed uruchomieniem
-ROOT_PARTITION="/dev/sda2"  # Partycja root Btrfs, ustawiona przed uruchomieniem
+EFI_PARTITION="/dev/sdX1"  # Partycja EFI, ustawiona przed uruchomieniem
+ROOT_PARTITION="/dev/sdX2"  # Partycja root Btrfs, ustawiona przed uruchomieniem
 
 # Sprawdzenie, czy zmienne EFI_PARTITION i ROOT_PARTITION są ustawione
 if [[ -z "$EFI_PARTITION" || -z "$ROOT_PARTITION" ]]; then
@@ -38,7 +38,7 @@ mount -o subvol=@.snapshots,compress=zstd,noatime "$ROOT_PARTITION" /mnt/.snapsh
 mount "$EFI_PARTITION" /mnt/boot/EFI
 
 # Instalacja systemu
-pacstrap /mnt base linux linux-firmware btrfs-progs
+pacstrap /mnt base linux linux-firmware btrfs-progs linux-headers
 
 # Generowanie fstab z kompresją Zstd i noatime
 genfstab -U /mnt | sed 's/subvol=@/&,compress=zstd,noatime/' >> /mnt/etc/fstab
@@ -52,6 +52,10 @@ locale-gen
 echo "LANG=pl_PL.UTF-8" > /etc/locale.conf
 echo "myhost" > /etc/hostname
 
+# Konfiguracja strefy czasowej i synchronizacja
+ln -sf /usr/share/zoneinfo/Europe/Warsaw /etc/localtime
+hwclock --systohc
+
 # Hasło dla roota
 echo "root:$ROOT_PASSWORD" | chpasswd
 
@@ -59,132 +63,23 @@ echo "root:$ROOT_PASSWORD" | chpasswd
 useradd -m -G wheel "$USER_NAME"
 echo "$USER_NAME:$USER_PASSWORD" | chpasswd
 
-# Instalacja sudo
+# Instalacja sudo i konfiguracja uprawnień
 pacman -S --noconfirm sudo
 echo "%wheel ALL=(ALL) ALL" >> /etc/sudoers
 
 # Instalacja pakietów
-declare -a PACKAGES=(
-    adobe-source-sans-fonts
-    aic94xx-firmware
-    alacritty
-    arandr
-    arc-gtk-theme
-    avahi
-    awesome-terminal-fonts
-    bash-completion
-    bat
-    brightnessctl
-    btop
-    cpuid
-    cups
-    curl
-    dconf-editor
-    downgrade
-    duf
-    dunst
-    fastfetch
-    feh
-    file-roller
-    firefox
-    fish
-    flameshot
-    font-manager
-    fzf
-    galculator
-    gcolor3
-    geany
-    gimp
-    git
-    gparted
-    gvfs-smb
-    gzip
-    hardcode-fixer-git
-    hardinfo-gtk3
-    hddtemp
-    htop
-    hw-probe
-    i3lock
-    kitty
-    libreoffice-fresh
-    libreoffice-fresh-pl
-    lm_sensors
-    lsd
-    lshw
-    man-db
-    man-pages
-    meld
-    mkinitcpio-firmware
-    mlocate
-    most
-    neovim
-    network-manager-applet
-    networkmanager-openvpn
-    ntp
-    numlockx
-    nwg-look
-    p7zip
-    papirus-icon-theme
-    parcellite
-    pavucontrol
-    pdfarranger
-    picom
-    polkit
-    polkit-gnome
-    ranger
-    rclone
-    ripgrep
-    rofi
-    rsync
-    speedtest-cli-git
-    starship
-    sxhkd
-    sxiv
-    system-config-printer
-    thunar
-    thunar-volman
-    thunderbird
-    time
-    tldr
-    tlp
-    trash-cli
-    tree
-    ttf-jetbrains-mono-nerd
-    ueberzug
-    unrar
-    unzip
-    vim
-    vlc
-    wget
-    wttr
-    xclip
-    xcolor
-    xdg-user-dirs
-    xfce4-notifyd
-    xorg-server
-    xorg-xinit
-    xorg-xkill
-    xorg-xrandr
-    xorg-xsetroot
-    zathura
-    zoxide
-)
+pacman -S --noconfirm grub efibootmgr networkmanager xfce4 xfce4-goodies lightdm lightdm-gtk-greeter linux-headers
 
-for PACKAGE in "\${PACKAGES[@]}"; do
-    if ! pacman -Q "\$PACKAGE" > /dev/null 2>&1; then
-        echo "Instalowanie: \$PACKAGE"
-        pacman -S --noconfirm "\$PACKAGE"
-    else
-        echo "Pakiet \$PACKAGE jest już zainstalowany."
-    fi
-done
+# Instalacja bootloadera GRUB
+grub-install --target=x86_64-efi --efi-directory=/boot/EFI --bootloader-id=GRUB
+grub-mkconfig -o /boot/grub/grub.cfg
 
-# Instalacja i konfiguracja consolefont
-echo "FONT=lat2-Terminus16" >> /etc/vconsole.conf
+# Tworzenie initramfs
+mkinitcpio -P
 
-# Konfiguracja systemd-resolved
-systemctl enable systemd-resolved.service
-ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
+# Włączanie usług
+systemctl enable NetworkManager
+systemctl enable lightdm
 
 EOF
 
