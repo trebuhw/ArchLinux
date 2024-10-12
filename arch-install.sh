@@ -1,9 +1,9 @@
 #!/bin/bash
 
 # Ustawienia zmiennych
-ROOT_PASSWORD="hw"  # Hasło dla roota
+ROOT_PASSWORD=""  # Hasło dla roota
 USER_NAME="hubert"
-USER_PASSWORD="hw"
+USER_PASSWORD=""
 EFI_PARTITION="/dev/sda1"  # Partycja EFI, ustawiona przed uruchomieniem
 ROOT_PARTITION="/dev/sda2"  # Partycja root Btrfs, ustawiona przed uruchomieniem
 
