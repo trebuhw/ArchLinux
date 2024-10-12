@@ -1,9 +1,9 @@
 #!/bin/bash
 
 # Ustawienia zmiennych
-ROOT_PASSWORD=""  # Hasło dla roota
+ROOT_PASSWORD="hw"  # Hasło dla roota
 USER_NAME="hubert"
-USER_PASSWORD=""
+USER_PASSWORD="hw"
 EFI_PARTITION="/dev/sda1"  # Partycja EFI, ustawiona przed uruchomieniem
 ROOT_PARTITION="/dev/sda2"  # Partycja root Btrfs, ustawiona przed uruchomieniem
 
@@ -13,9 +13,13 @@ if [[ -z "$EFI_PARTITION" || -z "$ROOT_PARTITION" ]]; then
     exit 1
 fi
 
-# Formatowanie partycji
+# Formatowanie partycji EFI i ROOT
 mkfs.fat -F32 "$EFI_PARTITION"
 mkfs.btrfs "$ROOT_PARTITION"
+
+# Ustawianie flag boot i esp dla partycji EFI
+parted $(dirname "$EFI_PARTITION") set $(basename "$EFI_PARTITION" | tr -dc '0-9') boot on
+parted $(dirname "$EFI_PARTITION") set $(basename "$EFI_PARTITION" | tr -dc '0-9') esp on
 
 # Montowanie systemu
 mount "$ROOT_PARTITION" /mnt
