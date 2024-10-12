@@ -1,89 +1,83 @@
 #!/bin/bash
 
-# Ustawienia zmiennych
-ROOT_PASSWORD=""  # Hasło dla roota
-USER_NAME="hubert"
-USER_PASSWORD=""
-EFI_PARTITION="/dev/sdX1"  # Partycja EFI, ustawiona przed uruchomieniem
-ROOT_PARTITION="/dev/sdX2"  # Partycja root Btrfs, ustawiona przed uruchomieniem
+# Zmienna dla partycji EFI i root
+EFI_PART="/dev/sda1"
+ROOT_PART="/dev/sda2"
 
-# Sprawdzenie, czy zmienne EFI_PARTITION i ROOT_PARTITION są ustawione
-if [[ -z "$EFI_PARTITION" || -z "$ROOT_PARTITION" ]]; then
-    echo "Ustaw partycje EFI i root przed uruchomieniem skryptu."
-    exit 1
-fi
+# Montowanie root na /mnt
+mount "$ROOT_PART" /mnt
 
-# Formatowanie partycji
-mkfs.fat -F32 "$EFI_PARTITION"
-mkfs.btrfs "$ROOT_PARTITION"
+# Tworzenie katalogów dla EFI i boot
+mkdir -p /mnt/boot/efi
 
-# Montowanie systemu
-mount "$ROOT_PARTITION" /mnt
+# Montowanie EFI
+mount "$EFI_PART" /mnt/boot/efi
 
-# Tworzenie subwolumenów
+# Tworzenie subwolumenów Btrfs
 btrfs subvolume create /mnt/@
 btrfs subvolume create /mnt/@home
 btrfs subvolume create /mnt/@log
 btrfs subvolume create /mnt/@pkg
 btrfs subvolume create /mnt/@.snapshots
 
-# Odmontowanie root i ponowne zamontowanie subwolumenów z kompresją Zstd i noatime
+# Odmontowanie i ponowne montowanie z subwolumenami
 umount /mnt
-mount -o subvol=@,compress=zstd,noatime "$ROOT_PARTITION" /mnt
-mkdir -p /mnt/{boot/EFI,home,var/cache/pacman/pkg,var/log,.snapshots}
-mount -o subvol=@home,compress=zstd,noatime "$ROOT_PARTITION" /mnt/home
-mount -o subvol=@log,compress=zstd,noatime "$ROOT_PARTITION" /mnt/var/log
-mount -o subvol=@pkg,compress=zstd,noatime "$ROOT_PARTITION" /mnt/var/cache/pacman/pkg
-mount -o subvol=@.snapshots,compress=zstd,noatime "$ROOT_PARTITION" /mnt/.snapshots
-mount "$EFI_PARTITION" /mnt/boot/EFI
+mount -o compress=zstd,noatime,subvol=@ "$ROOT_PART" /mnt
+mkdir -p /mnt/{home,var/log,var/cache/pacman/pkg,.snapshots}
+mount -o compress=zstd,noatime,subvol=@home "$ROOT_PART" /mnt/home
+mount -o compress=zstd,noatime,subvol=@log "$ROOT_PART" /mnt/var/log
+mount -o compress=zstd,noatime,subvol=@pkg "$ROOT_PART" /mnt/var/cache/pacman/pkg
+mount -o compress=zstd,noatime,subvol=@.snapshots "$ROOT_PART" /mnt/.snapshots
 
-# Instalacja systemu
-pacstrap /mnt base linux linux-firmware btrfs-progs linux-headers
+# Instalacja podstawowych pakietów
+pacstrap /mnt base linux linux-firmware linux-headers nano btrfs-progs
 
-# Generowanie fstab z kompresją Zstd i noatime
+# Generowanie fstab
 genfstab -U /mnt | sed 's/subvol=@/&,compress=zstd,noatime/' >> /mnt/etc/fstab
 
-# Chroot
+# Chroot do systemu
 arch-chroot /mnt /bin/bash <<EOF
-
-# Ustawienia lokalizacji
-echo "pl_PL.UTF-8 UTF-8" >> /etc/locale.gen
-locale-gen
-echo "LANG=pl_PL.UTF-8" > /etc/locale.conf
-echo "myhost" > /etc/hostname
-
-# Konfiguracja strefy czasowej i synchronizacja
+# Strefa czasowa
 ln -sf /usr/share/zoneinfo/Europe/Warsaw /etc/localtime
 hwclock --systohc
 
-# Hasło dla roota
-echo "root:$ROOT_PASSWORD" | chpasswd
+# Ustawienie lokalizacji
+echo "LANG=pl_PL.UTF-8" > /etc/locale.conf
+sed -i 's/#pl_PL.UTF-8/pl_PL.UTF-8/' /etc/locale.gen
+locale-gen
 
-# Tworzenie użytkownika
-useradd -m -G wheel "$USER_NAME"
-echo "$USER_NAME:$USER_PASSWORD" | chpasswd
+# Nazwa hosta
+echo "myhost" > /etc/hostname
 
-# Instalacja sudo i konfiguracja uprawnień
-pacman -S --noconfirm sudo
-echo "%wheel ALL=(ALL) ALL" >> /etc/sudoers
+# Konfiguracja hosts
+cat <<EOL >> /etc/hosts
+127.0.0.1   localhost
+::1         localhost
+127.0.1.1   myhost.localdomain myhost
+EOL
 
-# Instalacja pakietów
-pacman -S --noconfirm grub efibootmgr networkmanager xfce4 xfce4-goodies lightdm lightdm-gtk-greeter linux-headers
-
-# Instalacja bootloadera GRUB
-grub-install --target=x86_64-efi --efi-directory=/boot/EFI --bootloader-id=GRUB
+# Instalacja GRUB
+grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=GRUB
 grub-mkconfig -o /boot/grub/grub.cfg
 
 # Tworzenie initramfs
 mkinitcpio -P
 
-# Włączanie usług
-systemctl enable NetworkManager
-systemctl enable lightdm
+# Hasło dla root
+echo "root:hw" | chpasswd
 
+# Tworzenie użytkownika hubert
+useradd -m -G wheel hubert
+echo "hubert:hw" | chpasswd
+
+# Konfiguracja sudoers
+sed -i 's/# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/' /etc/sudoers
+
+# Włączenie usług
+systemctl enable NetworkManager
 EOF
 
-# Odmontowanie partycji
+# Odmontowanie systemu
 umount -R /mnt
 
-echo "Instalacja zakończona. Możesz teraz uruchomić system."
+echo "Instalacja zakończona. Możesz teraz zrestartować system."
