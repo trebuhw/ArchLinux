@@ -44,7 +44,7 @@ mount -o subvol=@.snapshots,compress=zstd,noatime "$ROOT_PARTITION" /mnt/.snapsh
 mount "$EFI_PARTITION" /mnt/boot/EFI
 
 # Instalacja podstawowych pakietów systemowych
-pacstrap /mnt base linux linux-firmware btrfs-progs linux-headers
+pacstrap /mnt base linux linux-firmware linux-headers btrfs-progs
 
 # Generowanie fstab z kompresją Zstd i noatime
 genfstab -U /mnt | sed 's/subvol=@/&,compress=zstd,noatime/' >> /mnt/etc/fstab
@@ -88,7 +88,7 @@ echo "%wheel ALL=(ALL) ALL" >> /etc/sudoers
 # Instalacja GRUB i podstawowych narzędzi
 pacman -S --noconfirm grub efibootmgr networkmanager network-manager-applet \
     xfce4 xfce4-goodies lightdm lightdm-gtk-greeter \
-    linux-headers snapper
+    snapper
 
 # Instalacja bootloadera GRUB
 grub-install --target=x86_64-efi --efi-directory=/boot/EFI --bootloader-id=GRUB
@@ -158,9 +158,11 @@ git clone "$DOTFILES_REPO" /tmp/dotfiles
 cp -r /tmp/dotfiles/* ~/.config/
 rm -rf /tmp/dotfiles
 
-# Włączanie usług PulseAudio i drukowania
-systemctl enable --now avahi-daemon
-systemctl enable --now cups.service
+# Włączanie usług NetworkManager, lightdm, PulseAudio i drukowania
+systemctl enable avahi-daemon
+systemctl enable cups.service
+systemctl enable NetworkManager.service
+systemctl enable lightdm.service
 
 EOF
 
