@@ -6,6 +6,8 @@ USER_NAME="hubert"
 USER_PASSWORD=""
 EFI_PARTITION="/dev/sda1"  # Partycja EFI, ustawiona przed uruchomieniem
 ROOT_PARTITION="/dev/sda2"  # Partycja root Btrfs, ustawiona przed uruchomieniem
+MYHOST="myhost"  # Zmienna nazwy hosta
+DOTFILES_REPO="https://github.com/trebuhw/dotfiles.git"  # Repozytorium dotfiles
 
 # Sprawdzenie, czy zmienne EFI_PARTITION i ROOT_PARTITION są ustawione
 if [[ -z "$EFI_PARTITION" || -z "$ROOT_PARTITION" ]]; then
@@ -13,9 +15,13 @@ if [[ -z "$EFI_PARTITION" || -z "$ROOT_PARTITION" ]]; then
     exit 1
 fi
 
-# Formatowanie partycji
+# Formatowanie partycji EFI i ROOT
 mkfs.fat -F32 "$EFI_PARTITION"
 mkfs.btrfs "$ROOT_PARTITION"
+
+# Ustawianie flag boot i esp dla partycji EFI
+parted $(dirname "$EFI_PARTITION") set $(basename "$EFI_PARTITION" | tr -dc '0-9') boot on
+parted $(dirname "$EFI_PARTITION") set $(basename "$EFI_PARTITION" | tr -dc '0-9') esp on
 
 # Montowanie systemu
 mount "$ROOT_PARTITION" /mnt
@@ -37,7 +43,7 @@ mount -o subvol=@pkg,compress=zstd,noatime "$ROOT_PARTITION" /mnt/var/cache/pacm
 mount -o subvol=@.snapshots,compress=zstd,noatime "$ROOT_PARTITION" /mnt/.snapshots
 mount "$EFI_PARTITION" /mnt/boot/EFI
 
-# Instalacja systemu
+# Instalacja podstawowych pakietów systemowych
 pacstrap /mnt base linux linux-firmware btrfs-progs linux-headers
 
 # Generowanie fstab z kompresją Zstd i noatime
@@ -46,11 +52,23 @@ genfstab -U /mnt | sed 's/subvol=@/&,compress=zstd,noatime/' >> /mnt/etc/fstab
 # Chroot
 arch-chroot /mnt /bin/bash <<EOF
 
-# Ustawienia lokalizacji
-echo "pl_PL.UTF-8 UTF-8" >> /etc/locale.gen
-locale-gen
+# Ustawienie lokalizacji
 echo "LANG=pl_PL.UTF-8" > /etc/locale.conf
-echo "myhost" > /etc/hostname
+sed -i 's/#pl_PL.UTF-8/pl_PL.UTF-8/' /etc/locale.gen
+locale-gen
+
+# Instalacja i konfiguracja consolefont
+echo "FONT=lat2-Terminus16" >> /etc/vconsole.conf
+
+# Nazwa hosta
+echo "$MYHOST" > /etc/hostname
+
+# Konfiguracja hosts
+cat <<EOL >> /etc/hosts
+127.0.0.1   localhost
+::1         localhost
+127.0.1.1   $MYHOST.localdomain $MYHOST
+EOL
 
 # Konfiguracja strefy czasowej i synchronizacja
 ln -sf /usr/share/zoneinfo/Europe/Warsaw /etc/localtime
@@ -67,37 +85,82 @@ echo "$USER_NAME:$USER_PASSWORD" | chpasswd
 pacman -S --noconfirm sudo
 echo "%wheel ALL=(ALL) ALL" >> /etc/sudoers
 
-# Instalacja niezbędnych pakietów
-pacman -S --noconfirm grub efibootmgr networkmanager xfce4 xfce4-goodies lightdm lightdm-gtk-greeter linux-headers xorg-server pulseaudio cups
+# Instalacja GRUB i podstawowych narzędzi
+pacman -S --noconfirm grub efibootmgr networkmanager network-manager-applet \
+    xfce4 xfce4-goodies lightdm lightdm-gtk-greeter \
+    linux-headers snapper
 
-# Instalacja dodatkowych programów przez pacman
-pacman -S --noconfirm adobe-source-sans-fonts aic94xx-firmware alacritty arandr arc-gtk-theme awesome-terminal-fonts bash-completion bat brightnessctl btop cpuid curl dconf-editor downgrade duf dunst fastfetch feh file-roller firefox fish flameshot font-manager fzf galculator gcolor3 geany gimp git gparted gvfs-smb gzip hardinfo-gtk3 hddtemp htop hw-probe i3lock kitty libreoffice-fresh libreoffice-fresh-pl lm_sensors lsd lshw man-db man-pages meld mkinitcpio-firmware mlocate most neovim network-manager-applet networkmanager-openvpn ntp numlockx nwg-look p7zip papirus-icon-theme parcellite pavucontrol pdfarranger picom polkit polkit-gnome ranger rclone ripgrep rofi rsync speedtest-cli-git starship sxhkd sxiv system-config-printer thunar thunar-volman thunderbird time tldr tlp trash-cli tree ttf-jetbrains-mono-nerd ueberzug unrar unzip vim vlc wget wttr xclip xcolor xdg-user-dirs xfce4-notifyd xorg-xinit xorg-xkill xorg-xrandr xorg-xsetroot zathura zoxide
-
-# Instalacja yay
-cd /opt
-git clone https://aur.archlinux.org/yay.git
-chown -R hubert:users ./yay
-cd yay
-sudo -u hubert makepkg -si --noconfirm
-
-# Instalacja pakietów z AUR przez yay
-sudo -u hubert yay -S --noconfirm catppuccin-gtk-theme-mocha
-
-# Pobranie i skopiowanie plików z repozytorium dotfiles
-sudo -u hubert git clone https://github.com/trebuhw/dotfiles.git /home/hubert/dotfiles
-cp -r /home/hubert/dotfiles/.config/* /home/hubert/.config/
-
-# Konfiguracja bootloadera GRUB
+# Instalacja bootloadera GRUB
 grub-install --target=x86_64-efi --efi-directory=/boot/EFI --bootloader-id=GRUB
 grub-mkconfig -o /boot/grub/grub.cfg
 
 # Tworzenie initramfs
 mkinitcpio -P
 
-# Włączanie usług
-systemctl enable NetworkManager
-systemctl enable lightdm
-systemctl enable cups
+# Instalacja Snappera
+pacman -S --noconfirm snapper grub-btrfs
+
+# Konfiguracja Snappera
+snapper --no-dbus -c root create-config /
+
+# Konfiguracja uprawnień do Snappera
+groupadd snapper
+usermod -aG snapper $USER_NAME
+chmod a+rx /.snapshots
+chown :snapper /.snapshots
+
+# Konfiguracja Grub-Btrfs dla automatycznych wpisów do GRUB
+sed -i 's/#GRUB_BTRFS_ENABLE_SNAPSHOTS=1/GRUB_BTRFS_ENABLE_SNAPSHOTS=1/' /etc/default/grub-btrfs/config
+
+# Włączanie snapper-timeline i snapper-cleanup
+systemctl enable --now snapper-timeline.timer
+systemctl enable --now snapper-cleanup.timer
+
+# Dodanie migawkowego ładowania w GRUB
+grub-install --target=x86_64-efi --efi-directory=/boot/EFI --bootloader-id=GRUB
+grub-mkconfig -o /boot/grub/grub.cfg
+
+# Instalacja yay
+git clone https://aur.archlinux.org/yay.git /tmp/yay
+cd /tmp/yay
+makepkg -si --noconfirm
+cd -
+rm -rf /tmp/yay
+
+# Instalacja dodatkowych pakietów do Xorg, PulseAudio, drukowania i innych
+pacman -S --noconfirm xorg-server xorg-xinit xorg-xrandr xorg-xsetroot xorg-xkill \
+    xfce4-notifyd pulseaudio pulseaudio-alsa pavucontrol cups cups-pdf ghostscript \
+    system-config-printer avahi nss-mdns gvfs-smb \
+    adobe-source-sans-fonts aic94xx-firmware alacritty arandr arc-gtk-theme \
+    awesome-terminal-fonts bash-completion bat brightnessctl btop cpuid curl \
+    dconf-editor downgrade duf dunst fastfetch feh file-roller firefox fish \
+    flameshot font-manager fzf galculator gcolor3 geany gimp git gparted gzip \
+    hardcode-fixer-git hardinfo-gtk3 hddtemp htop hw-probe i3lock kitty \
+    libreoffice-fresh libreoffice-fresh-pl lm_sensors lsd lshw man-db man-pages \
+    meld mkinitcpio-firmware mlocate most neovim networkmanager-openvpn ntp \
+    numlockx nwg-look p7zip papirus-icon-theme parcellite pdfarranger picom \
+    polkit polkit-gnome ranger rclone ripgrep rofi rsync speedtest-cli-git starship \
+    sxhkd sxiv system-config-printer thunar thunar-volman thunderbird time \
+    tldr tlp trash-cli tree ttf-jetbrains-mono-nerd ueberzug unrar unzip vim vlc wget \
+    wttr xclip xcolor xdg-user-dirs zathura zoxide
+
+# Instalacja motywu catppuccin-gtk-theme-mocha
+yay -S --noconfirm catppuccin-gtk-theme-mocha
+
+# Instalacja czcionek FiraCode Nerd Font
+yay -S --noconfirm nerd-fonts-fira-code
+
+# Aktualizacja czcionek
+fc-cache -fv
+
+# Pobranie repozytorium dotfiles i skopiowanie do .config
+git clone "$DOTFILES_REPO" /tmp/dotfiles
+cp -r /tmp/dotfiles/* ~/.config/
+rm -rf /tmp/dotfiles
+
+# Włączanie usług PulseAudio i drukowania
+systemctl enable --now avahi-daemon
+systemctl enable --now cups.service
 
 EOF
 
