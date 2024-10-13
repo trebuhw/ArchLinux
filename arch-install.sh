@@ -4,9 +4,9 @@
 ROOT_PASSWORD=""  # Hasło dla roota
 USER_NAME="hubert"
 USER_PASSWORD=""
-EFI_PARTITION="/dev/sda1"  # Partycja EFI, ustawiona przed uruchomieniem
-ROOT_PARTITION="/dev/sda2"  # Partycja root Btrfs, ustawiona przed uruchomieniem
-MYHOST="myhost"  # Zmienna nazwy hosta
+EFI_PARTITION="/dev/sda3"  # Partycja EFI, ustawiona przed uruchomieniem
+ROOT_PARTITION="/dev/sda4"  # Partycja root Btrfs, ustawiona przed uruchomieniem
+MYHOST="arch"  # Zmienna nazwy hosta
 DOTFILES_REPO="https://github.com/trebuhw/dotfiles.git"  # Repozytorium dotfiles
 
 # Sprawdzenie, czy zmienne EFI_PARTITION i ROOT_PARTITION są ustawione
@@ -24,7 +24,8 @@ parted $(dirname "$EFI_PARTITION") set $(basename "$EFI_PARTITION" | tr -dc '0-9
 parted $(dirname "$EFI_PARTITION") set $(basename "$EFI_PARTITION" | tr -dc '0-9') esp on
 
 # Montowanie systemu
-mkdir -p /mnt/{boot/EFI,home,var/cache/pacman/pkg,var/log,.snapshots}
+mkdir -p /mnt
+mkdir -p /mnt/boot/EFI
 mount "$ROOT_PARTITION" /mnt
 
 # Tworzenie subwolumenów
@@ -34,20 +35,30 @@ btrfs subvolume create /mnt/@log
 btrfs subvolume create /mnt/@pkg
 btrfs subvolume create /mnt/@.snapshots
 
-# Odmontowanie root i ponowne zamontowanie subwolumenów z kompresją Zstd i noatime
+# Odmontowanie root
 umount /mnt
+
+# Zamontowanie subwolumenów z kompresją Zstd i noatime
 mount -o subvol=@,compress=zstd,noatime "$ROOT_PARTITION" /mnt
+
+mkdir /mnt/home
 mount -o subvol=@home,compress=zstd,noatime "$ROOT_PARTITION" /mnt/home
+mkdir /mnt/var/log
 mount -o subvol=@log,compress=zstd,noatime "$ROOT_PARTITION" /mnt/var/log
+mkdir /mnt/var/cache/pacman/pkg
 mount -o subvol=@pkg,compress=zstd,noatime "$ROOT_PARTITION" /mnt/var/cache/pacman/pkg
+mkdir /mnt/.snapshots
 mount -o subvol=@.snapshots,compress=zstd,noatime "$ROOT_PARTITION" /mnt/.snapshots
-mount "$EFI_PARTITION" /mnt/boot/EFI
+
+# Tworzenie i montowanie partycji EFI
+mkdir -p /mnt/boot/efi
+mount "$EFI_PARTITION" /mnt/boot/efi
 
 # Instalacja podstawowych pakietów systemowych
 pacstrap /mnt base linux linux-firmware linux-headers btrfs-progs
 
 # Generowanie fstab z kompresją Zstd i noatime
-genfstab -U /mnt | sed 's/subvol=@/&,compress=zstd,noatime/' >> /mnt/etc/fstab
+genfstab -U /mnt | sed 's/subvol=[^,]*/&,compress=zstd,noatime/' >> /mnt/etc/fstab
 
 # Chroot
 arch-chroot /mnt /bin/bash <<EOF
