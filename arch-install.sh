@@ -24,6 +24,7 @@ parted $(dirname "$EFI_PARTITION") set $(basename "$EFI_PARTITION" | tr -dc '0-9
 parted $(dirname "$EFI_PARTITION") set $(basename "$EFI_PARTITION" | tr -dc '0-9') esp on
 
 # Montowanie systemu
+mkdir -p /mnt/{boot/EFI,home,var/cache/pacman/pkg,var/log,.snapshots}
 mount "$ROOT_PARTITION" /mnt
 
 # Tworzenie subwolumenów
@@ -36,7 +37,6 @@ btrfs subvolume create /mnt/@.snapshots
 # Odmontowanie root i ponowne zamontowanie subwolumenów z kompresją Zstd i noatime
 umount /mnt
 mount -o subvol=@,compress=zstd,noatime "$ROOT_PARTITION" /mnt
-mkdir -p /mnt/{boot/EFI,home,var/cache/pacman/pkg,var/log,.snapshots}
 mount -o subvol=@home,compress=zstd,noatime "$ROOT_PARTITION" /mnt/home
 mount -o subvol=@log,compress=zstd,noatime "$ROOT_PARTITION" /mnt/var/log
 mount -o subvol=@pkg,compress=zstd,noatime "$ROOT_PARTITION" /mnt/var/cache/pacman/pkg
@@ -58,7 +58,7 @@ sed -i 's/#pl_PL.UTF-8/pl_PL.UTF-8/' /etc/locale.gen
 locale-gen
 
 # Instalacja i konfiguracja consolefont
-echo "FONT=lat2-Terminus16" >> /etc/vconsole.conf
+echo "FONT=ter-v24b" >> /etc/vconsole.conf
 
 # Nazwa hosta
 echo "$MYHOST" > /etc/hostname
