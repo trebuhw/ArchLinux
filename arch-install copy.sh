@@ -23,33 +23,36 @@ mkfs.btrfs "$ROOT_PARTITION"
 parted $(dirname "$EFI_PARTITION") set $(basename "$EFI_PARTITION" | tr -dc '0-9') boot on
 parted $(dirname "$EFI_PARTITION") set $(basename "$EFI_PARTITION" | tr -dc '0-9') esp on
 
-# Tworzenie subwolumenów
+# Montowanie systemu
+mkdir -p /mnt
+mkdir -p /mnt/boot/EFI
 mount "$ROOT_PARTITION" /mnt
+
+# Tworzenie subwolumenów
 btrfs subvolume create /mnt/@
 btrfs subvolume create /mnt/@home
 btrfs subvolume create /mnt/@log
 btrfs subvolume create /mnt/@pkg
-btrfs subvolume create /mnt/@snapshots
+btrfs subvolume create /mnt/@.snapshots
 
 # Odmontowanie root
 umount /mnt
 
 # Zamontowanie subwolumenów z kompresją Zstd i noatime
-mkdir /mnt
-mount -o noatime,compress=zstd:5,discard=async,space_cache=v2,subvol=@ /dev/"$ROOT_PARTITION" /mnt
+mount -o subvol=@,compress=zstd,noatime "$ROOT_PARTITION" /mnt
+
 mkdir /mnt/home
+mount -o subvol=@home,compress=zstd,noatime "$ROOT_PARTITION" /mnt/home
 mkdir /mnt/var/log
+mount -o subvol=@log,compress=zstd,noatime "$ROOT_PARTITION" /mnt/var/log
 mkdir /mnt/var/cache/pacman/pkg
+mount -o subvol=@pkg,compress=zstd,noatime "$ROOT_PARTITION" /mnt/var/cache/pacman/pkg
 mkdir /mnt/.snapshots
+mount -o subvol=@.snapshots,compress=zstd,noatime "$ROOT_PARTITION" /mnt/.snapshots
 
-mount -o noatime,compress=zstd:5,discard=async,space_cache=v2,subvol=@home /dev/"$ROOT_PARTITION" /mnt/home
-mount -o noatime,compress=zstd:5,discard=async,space_cache=v2,subvol=@log /dev/"$ROOT_PARTITION" /mnt/var/log
-mount -o noatime,compress=zstd:5,discard=async,space_cache=v2,subvol=@pkg /dev/"$ROOT_PARTITION" /mnt/var/cache/pacman/pkg
-mount -o noatime,compress=zstd:5,discard=async,space_cache=v2,subvol=@snapshots /dev/"$ROOT_PARTITION" /mnt/.snapshots
-
-# Tworzenie i montowanie partycji Boot
-mkdir -p /mnt/boot/
-mount "$EFI_PARTITION" /mnt/boot/
+# Tworzenie i montowanie partycji EFI
+mkdir -p /mnt/boot/efi
+mount "$EFI_PARTITION" /mnt/boot/efi
 
 # Instalacja podstawowych pakietów systemowych
 pacstrap /mnt base linux linux-firmware linux-headers btrfs-progs
