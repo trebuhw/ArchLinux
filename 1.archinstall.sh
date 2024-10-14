@@ -24,11 +24,11 @@ btrfs subvolume create /mnt/@snapshots
 umount /mnt
 
 # Tworzenie katalogów
-mkdir /mnt/archinstall
-mkdir /mnt/archinstall/home
-mkdir /mnt/archinstall/var/log
-mkdir /mnt/archinstall/var/cache/pacman/pkg
-mkdir /mnt/archinstall/.snapshots
+mkdir -p /mnt/archinstall
+mkdir -p /mnt/archinstall/home
+mkdir -p /mnt/archinstall/var/log
+mkdir -p /mnt/archinstall/var/cache/pacman/pkg
+mkdir -p /mnt/archinstall/.snapshots
 
 # Zamontowanie subwolumenów z kompresją Zstd i noatime
 mount -o noatime,compress=zstd:5,discard=async,space_cache=v2,subvol=@ "$ROOT_PARTITION" /mnt/archinstall/archinstall
