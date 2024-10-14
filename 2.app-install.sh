@@ -4,27 +4,27 @@ USER_NAME="hubert"
 DOTFILES_REPO="https://github.com/trebuhw/dotfiles.git"  # Repozytorium dotfiles
 
 # Instalacja Snappera
-pacman -S --noconfirm snapper grub-btrfs
+sudo pacman -S --noconfirm snapper grub-btrfs
 
 # Konfiguracja Snappera
 snapper --no-dbus -c root create-config /
 
 # Konfiguracja uprawnień do Snappera
-groupadd snapper
-usermod -aG snapper $USER_NAME
-chmod a+rx /.snapshots
-chown :snapper /.snapshots
+sudo groupadd snapper
+sudo usermod -aG snapper $USER_NAME
+sudo chmod a+rx /.snapshots
+sudo chown :snapper /.snapshots
 
 # Konfiguracja Grub-Btrfs dla automatycznych wpisów do GRUB
-sed -i 's/#GRUB_BTRFS_ENABLE_SNAPSHOTS=1/GRUB_BTRFS_ENABLE_SNAPSHOTS=1/' /etc/default/grub-btrfs/config
+sudo sed -i 's/#GRUB_BTRFS_ENABLE_SNAPSHOTS=1/GRUB_BTRFS_ENABLE_SNAPSHOTS=1/' /etc/default/grub-btrfs/config
 
 # Włączanie snapper-timeline i snapper-cleanup
-systemctl enable --now snapper-timeline.timer
-systemctl enable --now snapper-cleanup.timer
+sudo systemctl enable --now snapper-timeline.timer
+sudo systemctl enable --now snapper-cleanup.timer
 
 # Dodanie migawkowego ładowania w GRUB
-grub-install --target=x86_64-efi --efi-directory=/boot/EFI --bootloader-id=GRUB
-grub-mkconfig -o /boot/grub/grub.cfg
+sudo grub-install --target=x86_64-efi --efi-directory=/boot/EFI --bootloader-id=GRUB
+sudo grub-mkconfig -o /boot/grub/grub.cfg
 
 # Instalacja yay
 git clone https://aur.archlinux.org/yay.git /tmp/yay
@@ -65,8 +65,8 @@ cp -r /tmp/dotfiles/* ~/.config/
 rm -rf /tmp/dotfiles
 
 # Włączanie usług NetworkManager, lightdm, PulseAudio i drukowania
-systemctl enable avahi-daemon
-systemctl enable cups.service
+sudo systemctl enable avahi-daemon
+sudo systemctl enable cups.service
 #systemctl enable NetworkManager.service
 #systemctl enable lightdm.service
 
