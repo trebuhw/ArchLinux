@@ -34,18 +34,19 @@ btrfs subvolume create /mnt/@snapshots
 # Odmontowanie root
 umount /mnt
 
-# Zamontowanie subwolumenów z kompresją Zstd i noatime
+# Tworzenie katalogów
 mkdir /mnt
-mount -o noatime,compress=zstd:5,discard=async,space_cache=v2,subvol=@ /dev/"$ROOT_PARTITION" /mnt
 mkdir /mnt/home
 mkdir /mnt/var/log
 mkdir /mnt/var/cache/pacman/pkg
 mkdir /mnt/.snapshots
 
-mount -o noatime,compress=zstd:5,discard=async,space_cache=v2,subvol=@home /dev/"$ROOT_PARTITION" /mnt/home
-mount -o noatime,compress=zstd:5,discard=async,space_cache=v2,subvol=@log /dev/"$ROOT_PARTITION" /mnt/var/log
-mount -o noatime,compress=zstd:5,discard=async,space_cache=v2,subvol=@pkg /dev/"$ROOT_PARTITION" /mnt/var/cache/pacman/pkg
-mount -o noatime,compress=zstd:5,discard=async,space_cache=v2,subvol=@snapshots /dev/"$ROOT_PARTITION" /mnt/.snapshots
+# Zamontowanie subwolumenów z kompresją Zstd i noatime
+mount -o noatime,compress=zstd:5,discard=async,space_cache=v2,subvol=@ "$ROOT_PARTITION" /mnt
+mount -o noatime,compress=zstd:5,discard=async,space_cache=v2,subvol=@home "$ROOT_PARTITION" /mnt/home
+mount -o noatime,compress=zstd:5,discard=async,space_cache=v2,subvol=@log "$ROOT_PARTITION" /mnt/var/log
+mount -o noatime,compress=zstd:5,discard=async,space_cache=v2,subvol=@pkg "$ROOT_PARTITION" /mnt/var/cache/pacman/pkg
+mount -o noatime,compress=zstd:5,discard=async,space_cache=v2,subvol=@snapshots "$ROOT_PARTITION" /mnt/.snapshots
 
 # Tworzenie i montowanie partycji Boot
 mkdir -p /mnt/boot/
