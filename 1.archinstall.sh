@@ -1,5 +1,8 @@
 #!/bin/bash
-
+# Najpierw utworzyć partycje lsblk sprawdzić i wybrać dysk, cfdisk -/dev/sdx, pierwsz boot (efi) i druga root (linuxsystem)
+#
+# W skrypcie przypisać do zmiennych odpowiednie partycje
+#
 # Ustawienia zmiennych
 EFI_PARTITION="/dev/sda3"  # Partycja EFI, ustawiona przed uruchomieniem
 ROOT_PARTITION="/dev/sda4"  # Partycja root Btrfs, ustawiona przed uruchomieniem
@@ -39,5 +42,6 @@ mount -o noatime,compress=zstd:5,discard=async,space_cache=v2,subvol=@snapshots 
 # Tworzenie i montowanie partycji Boot
 mkdir -p /mnt/archinstall/boot/
 mount "$EFI_PARTITION" /mnt/archinstall/boot/
-
+#
+# Uruchomić 
 # archinstall # Standartowa instalacja archlinux przy konfiguracji dysku wybrać preconfiguration i wpisać punkt montowania /mnt/archinstall !!!!!
