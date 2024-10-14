@@ -40,4 +40,4 @@ mount -o noatime,compress=zstd:5,discard=async,space_cache=v2,subvol=@snapshots 
 mkdir -p /mnt/archinstall/boot/
 mount "$EFI_PARTITION" /mnt/archinstall/boot/
 
-# archinstall
+# archinstall # Standartowa instalacja archlinux przy konfiguracji dysku wybrać preconfiguration i wpisać punkt montowania /mnt/archinstall !!!!!
