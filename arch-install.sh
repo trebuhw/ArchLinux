@@ -66,7 +66,7 @@ sed -i 's/#pl_PL.UTF-8/pl_PL.UTF-8/' /etc/locale.gen
 locale-gen
 
 # Instalacja i konfiguracja consolefont
-echo "FONT=ter-v24b" >> /etc/vconsole.conf
+# echo "FONT=ter-v24b" >> /etc/vconsole.conf
 
 # Nazwa hosta
 echo "$MYHOST" > /etc/hostname
