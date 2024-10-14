@@ -29,12 +29,12 @@ sudo grub-mkconfig -o /boot/grub/grub.cfg
 # Instalacja yay
 git clone https://aur.archlinux.org/yay.git /tmp/yay
 cd /tmp/yay
-makepkg -si --noconfirm
+sudo makepkg -si --noconfirm
 cd -
 rm -rf /tmp/yay
 
 # Instalacja dodatkowych pakietów do Xorg, PulseAudio, drukowania i innych
-pacman -S --noconfirm xorg-server xorg-xinit xorg-xrandr xorg-xsetroot xorg-xkill \
+sudo pacman -S --noconfirm xorg-server xorg-xinit xorg-xrandr xorg-xsetroot xorg-xkill \
     xfce4-notifyd pulseaudio pulseaudio-alsa pavucontrol cups cups-pdf ghostscript \
     system-config-printer avahi nss-mdns gvfs-smb \
     adobe-source-sans-fonts aic94xx-firmware alacritty arandr arc-gtk-theme \
